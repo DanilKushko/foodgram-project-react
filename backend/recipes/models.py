@@ -70,10 +70,8 @@ class Recipe(models.Model):
         related_name='recipes'
     )
 
-
     class Meta:
         ordering = ('name',)
-        #ordering = ('-pub_date',)
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
 

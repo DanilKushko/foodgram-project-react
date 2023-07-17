@@ -2,8 +2,8 @@ from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet as DjoserUserViewSet
-from recipes.models import *
-from recipes.models import Ingredient, Recipe, Tag
+from recipes.models import (Favorite, Ingredient, Recipe,
+                            ShopList, Tag)
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import (IsAuthenticated,
@@ -39,7 +39,7 @@ class UserViewSet(DjoserUserViewSet):
         if request.method == 'DELETE':
             get_object_or_404(Follow, user=user, following=author).delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        
+
     @action(detail=False, methods=['GET'])
     def get_self_page(self, request):
         serializer = self.get_serializer(request.user)
@@ -79,7 +79,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
         else:
             return CreateRecipeSerializer
 
-
     @action(detail=False, methods=['GET'])
     def download_shopping_cart(self, request):
         ingredients = Ingredient.objects.filter(
@@ -87,7 +86,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ).values(
             'name', 'measurement_unit'
         ).annotate(total_amount=Sum('ingredienttorecipe__amount'))
-    
+
         shopping_list = ['Список покупок:\n']
         for ingredient in ingredients:
             # The field names in the annotation are incorrect
@@ -95,9 +94,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
             unit = ingredient['measurement_unit']
             amount = ingredient['total_amount']
             shopping_list.append(f'{name} - {amount}, {unit}')
-    
-        response = Response('\n'.join(shopping_list), content_type='text/plain')
-        response['Content-Disposition'] = 'attachment; filename="shopping_list.txt"'
+
+        response = Response(
+            '\n'.join(shopping_list),
+            content_type='text/plain'
+        )
+        response[
+            'Content-Disposition'
+            ] = 'attachment; filename="shopping_list.txt"'
         return response
 
     @action(detail=True, methods=['POST', 'DELETE'])
@@ -106,7 +110,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         if request.method == 'POST':
             data = {'user': request.user.id, 'recipe': recipe.id}
-            serializer = ShopListSerializer(data=data, context={'request': request})
+            serializer = ShopListSerializer(
+                data=data,
+                context={'request': request}
+            )
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -123,7 +130,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         if request.method == 'POST':
             data = {'user': request.user.id, 'recipe': recipe.id}
-            serializer = FavoriteSerializer(data=data, context={'request': request})
+            serializer = FavoriteSerializer(
+                data=data,
+                context={'request': request}
+            )
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)

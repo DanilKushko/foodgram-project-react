@@ -1,6 +1,8 @@
-from django.contrib import admin
 from django.conf import settings
-from .models import (Favorite, Ingredient, IngredientToRecipe, Recipe, ShopList, Tag)
+from django.contrib import admin
+
+from .models import (Favorite, Ingredient, IngredientToRecipe, Recipe,
+                     ShopList, Tag)
 
 
 class IngredientInline(admin.TabularInline):

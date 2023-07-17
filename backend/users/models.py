@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+
 class User(AbstractUser):
     """Модель пользователя"""
     email = models.EmailField(
@@ -48,7 +49,7 @@ class User(AbstractUser):
         'auth.Permission',
         verbose_name='User permissions',
         blank=True,
-        related_name='user_set_custom', 
+        related_name='user_set_custom',
     )
 
     class Meta:
