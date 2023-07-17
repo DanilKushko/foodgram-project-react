@@ -89,7 +89,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         shopping_list = ['Список покупок:\n']
         for ingredient in ingredients:
-            # The field names in the annotation are incorrect
             name = ingredient['name']
             unit = ingredient['measurement_unit']
             amount = ingredient['total_amount']

@@ -121,7 +121,6 @@ class Favorite(FavoriteShoppingCart):
     """Модель добавления в избранное."""
 
     class Meta(FavoriteShoppingCart.Meta):
-        default_related_name = 'favorites'
         verbose_name = 'Избранное'
         verbose_name_plural = 'Избранное'
 
@@ -134,7 +133,6 @@ class ShopList(FavoriteShoppingCart):
     """Модель списка покупок."""
 
     class Meta(FavoriteShoppingCart.Meta):
-        default_related_name = 'shopping_list'
         verbose_name = 'Корзина'
         verbose_name_plural = 'Корзина'
 
@@ -144,13 +142,13 @@ class ShopList(FavoriteShoppingCart):
 
 
 class IngredientToRecipe(models.Model):
-    """Модель для связи ингридиентов и рецептов."""
+    """Модель связи ингридиентов и рецептов."""
     ingredient = models.ForeignKey(
         Ingredient, on_delete=models.CASCADE, verbose_name='Ингридиент',
     )
     recipe = models.ForeignKey(
         Recipe, on_delete=models.CASCADE, verbose_name='Рецепт',
-        related_name='ingredienttorecipe'
+        related_name='ingredient_recipe'
     )
 
     amount = models.PositiveIntegerField(
