@@ -122,13 +122,13 @@ class RecipeReadSerializer(serializers.ModelSerializer):
 
     def get_favorited(self, obj):
         request = self.context.get('request').request.user
-        return (request.user.is_authenticated and
-                obj.favorites.filter(user=request.user).exists())
+        return (request.user.is_authenticated
+                and obj.favorites.filter(user=request.user).exists())
 
     def get_in_shopping_cart(self, obj):
         request = self.context.get('request').request.user
-        return (request.user.is_authenticated and
-                obj.shopping_list.filter(user=request.user).exists())
+        return (request.user.is_authenticated
+                and obj.shopping_list.filter(user=request.user).exists())
 
 
 class CreateRecipeSerializer(serializers.ModelSerializer):
@@ -154,11 +154,9 @@ class CreateRecipeSerializer(serializers.ModelSerializer):
 
     def validate_cooking_time(self, cooking_time):
         if not 1 <= cooking_time <= 2880:
-            raise (
-                    serializers.ValidationError(
-                        'Время готовки должно быть от 1 минуты до 2 суток'
-                        )
-                    )
+            raise serializers.ValidationError(
+                'Время готовки должно быть от 1 минуты до 2 суток'
+            )
         return cooking_time
 
     def validate_recipe_tags(self, tags):
@@ -189,14 +187,12 @@ class CreateRecipeSerializer(serializers.ModelSerializer):
                 )
             ingredients_list.add(ingredient_id)
 
-            amount = int(ingredient.get('amount'))
-            if amount < 1:
-                raise (
-                        serializers.ValidationError(
-                            f'Количество ингредиента должно'
-                            f'быть больше 0, получено: {amount}'
-                        )
-                )
+        amount = int(ingredient.get('amount'))
+        if amount < 1:
+            raise serializers.ValidationError(
+                'Количество ингредиента должно быть больше 0, '
+                f'получено: {amount}'
+            )
         return data
 
     @classmethod
