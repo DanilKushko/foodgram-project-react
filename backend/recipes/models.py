@@ -167,3 +167,8 @@ class IngredientToRecipe(models.Model):
 
     def __str__(self):
         return f'{self.ingredient} и {self.recipe}'
+
+
+class Delete(models.Model):
+    """Модель удалить."""
+    delete = Follow
