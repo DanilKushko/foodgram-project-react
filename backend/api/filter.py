@@ -10,8 +10,7 @@ class IngredientFilter(BaseFilterBackend):
         search_value = request.query_params.get(self.search_param)
         if search_value:
             return queryset.filter(name__icontains=search_value)
-        else:
-            return queryset
+        return queryset
 
 
 class RecipeFilter(FilterSet):
@@ -32,11 +31,9 @@ class RecipeFilter(FilterSet):
     def filter_is_in_shopping_cart(self, queryset, name, value):
         if value and self.request.user.is_authenticated:
             return queryset.filter(shopping_list__user=self.request.user)
-        else:
-            return queryset
+        return queryset
 
     def filter_is_favorited(self, queryset, name, value):
         if value and self.request.user.is_authenticated:
             return queryset.filter(favorites__user=self.request.user)
-        else:
-            return queryset
+        return queryset

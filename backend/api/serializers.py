@@ -1,14 +1,19 @@
-import djoser.serializers
 from drf_extra_fields.fields import Base64ImageField
-from recipes.models import (Favorite, Ingredient, IngredientToRecipe, Recipe,
-                            ShopList, Tag)
 from rest_framework import serializers
 from rest_framework.fields import SerializerMethodField
+from django.db.models import Exists, OuterRef
+
+from recipes.models import (
+    Favorite, Ingredient, IngredientToRecipe,
+    Recipe, ShopList, Tag
+)
 from users.models import User
+import djoser.serializers
 
 
 class UserSerializer(serializers.ModelSerializer):
     """Сериализатор пользователя."""
+
     subscribed = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -17,12 +22,9 @@ class UserSerializer(serializers.ModelSerializer):
                   'first_name', 'last_name', 'is_subscribed',)
 
     def get_is_subscribed(self, obj):
-        """Проверка подписки"""
-        request = self.context.get('request').user
-        if request.user.is_anonymous or (request == obj):
-            return False
-        else:
-            return obj.following.filter(username=request.user).exists()
+        """Проверка подписки."""
+        request = self.context.get('request')
+        return obj.following.filter(username=request.user).exists()
 
 
 class UserCreateSerializer(djoser.serializers.UserCreateSerializer):
@@ -56,7 +58,8 @@ class SubscribeListSerializer(djoser.serializers.UserSerializer):
 
     def get_recipes(self, obj):
         """Возвращает список рецептов"""
-        limit = self.context['request'].GET.get('recipes_limit')
+        request = self.context['request']
+        limit = request.GET.get('recipes_limit')
         if limit:
             recipes = obj.recipe.all()[:int(limit)]
         else:
@@ -116,19 +119,27 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         model = Recipe
         fields = '__all__'
 
-    def get_recipe_ingredients(self, obj):
-        ingredients = obj.ingredienttorecipe.all()
-        return IngredientRecipeSerializer(ingredients, many=True).data
+    def get_queryset(self):
+        user = self.context.get('request').user
+        queryset = Recipe.objects.annotate(
+            is_favorited=Exists(
+                Favorite.objects.filter(
+                    recipe=OuterRef('pk'), user=user
+                )
+            ),
+            is_in_shopping_cart=Exists(
+                ShopList.objects.filter(
+                    recipe=OuterRef('pk'), user=user
+                )
+            )
+        ).prefetch_related('tags', 'ingredients')
+        return queryset
 
     def get_favorited(self, obj):
-        request = self.context.get('request').request.user
-        return (request.user.is_authenticated
-                and obj.favorites.filter(user=request.user).exists())
+        return obj.is_favorited
 
     def get_in_shopping_cart(self, obj):
-        request = self.context.get('request').request.user
-        return (request.user.is_authenticated
-                and obj.shopping_list.filter(user=request.user).exists())
+        return obj.is_in_shopping_cart
 
 
 class CreateRecipeSerializer(serializers.ModelSerializer):
@@ -160,15 +171,12 @@ class CreateRecipeSerializer(serializers.ModelSerializer):
         return cooking_time
 
     def validate_recipe_tags(self, tags):
-        tags_list = []
-        for tag in tags:
-            if not Tag.objects.filter(id=tag.id).exists():
-                raise serializers.ValidationError('Такого тега нет')
-            if tag in tags_list:
-                raise serializers.ValidationError('Такой тег уже существует')
-            tags_list.append(tag)
-        if len(tags_list) < 1:
-            raise serializers.ValidationError('Тегов нет')
+        if len(set(tags)) != len(tags):
+            raise serializers.ValidationError('Теги не должны повторяться')
+        if not tags:
+            raise serializers.ValidationError(
+                'Необходимо указать хотя бы один тег'
+            )
         return tags
 
     def validate_ingredients(self, data):
@@ -195,7 +203,7 @@ class CreateRecipeSerializer(serializers.ModelSerializer):
             )
         return data
 
-    @classmethod
+    @staticmethod
     def create_ingredients(cls, recipe, ingredients):
         ingredient_list = [
             IngredientToRecipe(

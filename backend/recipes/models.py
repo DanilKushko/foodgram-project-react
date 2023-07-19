@@ -1,23 +1,29 @@
+from colorfield.fields import ColorField
 from django.core.validators import MinValueValidator
 from django.db import models
-from users.models import User, Follow
+
+from users.models import Follow, User  # noqa
+
+MAX_NAME_LENGTH = 100
+MAX_COLOR_LENGTH = 7
+MAX_SLUG_LENGTH = 100
 
 
 class Tag(models.Model):
     """Модель тегов для рецептов."""
     name = models.CharField(
         'Название',
-        max_length=100,
+        max_length=MAX_NAME_LENGTH,
         unique=True
     )
-    color = models.CharField(
+    color = ColorField(
         'Цвет',
-        max_length=7,
+        max_length=MAX_COLOR_LENGTH,
         unique=True
     )
     slug = models.SlugField(
         'Слаг',
-        max_length=100,
+        max_length=MAX_SLUG_LENGTH,
         unique=True
     )
 
@@ -31,7 +37,7 @@ class Tag(models.Model):
 
 class Ingredient(models.Model):
     """Модель ингридиентов."""
-    name = models.CharField('Название', max_length=100)
+    name = models.CharField('Название', max_length=MAX_NAME_LENGTH)
     measurement_unit = models.CharField('Еденица измерения', max_length=30)
 
     class Meta:
@@ -44,7 +50,7 @@ class Ingredient(models.Model):
 
 class Recipe(models.Model):
     """Модель рецепта."""
-    name = models.CharField('Название', max_length=200)
+    name = models.CharField('Название', max_length=MAX_NAME_LENGTH)
     text = models.TextField('Описание')
     cooking_time = models.PositiveSmallIntegerField(
         'Время приготовления',
@@ -120,9 +126,10 @@ class FavoriteShoppingCart(models.Model):
 class Favorite(FavoriteShoppingCart):
     """Модель добавления в избранное."""
 
-    class Meta(FavoriteShoppingCart.Meta):
+    class Meta:
         verbose_name = 'Избранное'
         verbose_name_plural = 'Избранное'
+        default_related_name = 'favorites'
 
     def __str__(self):
         return (f'Рецепт: {self.recipe} - теперь'
@@ -167,8 +174,3 @@ class IngredientToRecipe(models.Model):
 
     def __str__(self):
         return f'{self.ingredient} и {self.recipe}'
-
-
-class Delete(models.Model):
-    """Модель удалить."""
-    delete = Follow

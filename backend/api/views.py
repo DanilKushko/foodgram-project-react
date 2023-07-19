@@ -2,15 +2,14 @@ from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet as DjoserUserViewSet
-from recipes.models import (Favorite, Ingredient, Recipe,
-                            ShopList, Tag)
+from recipes.models import Favorite, Ingredient, Recipe, ShopList, Tag
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
-from users.models import Follow, User
 
+from users.models import Follow, User
 from .filter import IngredientFilter, RecipeFilter
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (CreateRecipeSerializer, FavoriteSerializer,
@@ -35,10 +34,6 @@ class UserViewSet(DjoserUserViewSet):
             serializer.is_valid(raise_exception=True)
             Follow.objects.create(user=user, following=author)
             return Response(status=status.HTTP_201_CREATED)
-
-        if request.method == 'DELETE':
-            get_object_or_404(Follow, user=user, following=author).delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['GET'])
     def get_self_page(self, request):
@@ -76,8 +71,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.request.method == 'GET':
             return RecipeReadSerializer
-        else:
-            return CreateRecipeSerializer
+        return CreateRecipeSerializer
 
     @action(detail=False, methods=['GET'])
     def download_shopping_cart(self, request):
@@ -87,6 +81,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'name', 'measurement_unit'
         ).annotate(total_amount=Sum('ingredienttorecipe__amount'))
 
+        return self.generate_shopping_cart_response(ingredients)
+
+    def generate_shopping_cart_response(self, ingredients):
         shopping_list = ['Список покупок:\n']
         for ingredient in ingredients:
             name = ingredient['name']
@@ -108,14 +105,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = get_object_or_404(Recipe, id=pk)
 
         if request.method == 'POST':
-            data = {'user': request.user.id, 'recipe': recipe.id}
-            serializer = ShopListSerializer(
-                data=data,
-                context={'request': request}
-            )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            self.handle_favorite_or_cart(request, recipe, ShopListSerializer)
+            return Response(status=status.HTTP_201_CREATED)
 
         if request.method == 'DELETE':
             get_object_or_404(
@@ -128,14 +119,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = get_object_or_404(Recipe, id=pk)
 
         if request.method == 'POST':
-            data = {'user': request.user.id, 'recipe': recipe.id}
-            serializer = FavoriteSerializer(
-                data=data,
-                context={'request': request}
-            )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            self.handle_favorite_or_cart(request, recipe, FavoriteSerializer)
+            return Response(status=status.HTTP_201_CREATED)
 
         if request.method == 'DELETE':
             favorite = get_object_or_404(
@@ -143,3 +128,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
             )
             favorite.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def handle_favorite_or_cart(self, request, recipe, serializer_class):
+        data = {'user': request.user.id, 'recipe': recipe.id}
+        serializer = serializer_class(
+            data=data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()

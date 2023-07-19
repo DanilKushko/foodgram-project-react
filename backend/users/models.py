@@ -7,43 +7,32 @@ class User(AbstractUser):
     """Модель пользователя"""
     email = models.EmailField(
         'Электронная почта',
-        max_length=64,
+        max_length=256,
         unique=True,
         blank=False,
         null=False,
     )
     username = models.CharField(
         'Имя пользователя',
-        max_length=20,
+        max_length=64,
         unique=True,
         blank=False,
         null=False,
     )
     first_name = models.CharField(
         'Имя',
-        max_length=20,
+        max_length=64,
         blank=False,
         null=False,
     )
     last_name = models.CharField(
         'Фамилия',
-        max_length=20,
+        max_length=64,
         blank=False,
         null=False,
     )
-    password = models.CharField(
-        'Пароль',
-        max_length=20,
-        blank=False,
-        null=False,
-    )
-
-    groups = models.ManyToManyField(
-        'auth.Group',
-        verbose_name='Groups',
-        blank=True,
-        related_name='user_set_custom',
-    )
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['first_name', 'last_name']
 
     class Meta:
         verbose_name = 'Пользователь'
@@ -51,6 +40,12 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+
+    def me_validator(self):
+        if self.username.lower() == 'me':
+            raise ValidationError(
+                f'Создать пользователя с именем "{self.username}" невозможно.'
+            )
 
 
 class Follow(models.Model):
@@ -69,6 +64,12 @@ class Follow(models.Model):
     class Meta:
         verbose_name = 'Подписка'
         verbose_name_plural = 'Подписки'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'author'],
+                name='unique_follow'
+            )
+        ]
 
     def __str__(self):
         return f'{self.user} подписался на {self.author}'
