@@ -48,9 +48,9 @@ class SubscribeListSerializer(djoser.serializers.UserSerializer):
         read_only_fields = ('email', 'username',
                             'first_name', 'last_name')
 
-    def get_is_subscribed(*args) -> bool:
-        """Проверка подписки пользователей"""
-        return True
+#    def get_is_subscribed(*args) -> bool:
+#        """Проверка подписки пользователей"""
+#        return True
 
     def get_recipe_count(self, obj):
         """Возвращает количество рецептов автора"""
@@ -65,6 +65,10 @@ class SubscribeListSerializer(djoser.serializers.UserSerializer):
         else:
             recipes = obj.recipe.all()
         return RecipeShortSerializer(recipes, many=True).data
+
+    def get_is_subscribed(self, obj):  # добавим пропущенный параметр self
+        """Проверка подписки пользователей"""
+        return True
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -118,6 +122,22 @@ class RecipeReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recipe
         fields = '__all__'
+
+#    def get_queryset(self):
+#        user = self.context.get('request').user
+#        queryset = Recipe.objects.annotate(
+#            is_favorited=Exists(
+#                Favorite.objects.filter(
+#                    recipe=OuterRef('pk'), user=user
+#                )
+#            ),
+#            is_in_shopping_cart=Exists(
+#                ShopList.objects.filter(
+#                    recipe=OuterRef('pk'), user=user
+#                )
+#            )
+#        ).prefetch_related('tags', 'ingredients')
+#        return queryset
 
     def get_queryset(self):
         user = self.context.get('request').user

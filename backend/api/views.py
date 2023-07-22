@@ -24,6 +24,16 @@ class UserViewSet(DjoserUserViewSet):
 
     permission_classes = (IsAuthenticated,)
 
+#    @action(detail=True, methods=['POST', 'DELETE'])
+#    def subscribe(self, request, id):
+#        user = request.user
+#        author = get_object_or_404(User, pk=id)
+#
+#        if request.method == 'POST':
+#            serializer = SubscribeListSerializer(author, data=request.data)
+#            serializer.is_valid(raise_exception=True)
+#            Follow.objects.create(user=user, following=author)
+#            return Response(status=status.HTTP_201_CREATED)
     @action(detail=True, methods=['POST', 'DELETE'])
     def subscribe(self, request, id):
         user = request.user
@@ -32,8 +42,12 @@ class UserViewSet(DjoserUserViewSet):
         if request.method == 'POST':
             serializer = SubscribeListSerializer(author, data=request.data)
             serializer.is_valid(raise_exception=True)
-            Follow.objects.create(user=user, following=author)
+            Follow.objects.create(user=user, author=author)
             return Response(status=status.HTTP_201_CREATED)
+
+        if request.method == 'DELETE':
+            Follow.objects.filter(user=user, author=author).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['GET'])
     def get_self_page(self, request):

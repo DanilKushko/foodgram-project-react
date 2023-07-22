@@ -77,3 +77,7 @@ class Follow(models.Model):
     def clean(self):
         if self.user == self.author:
             raise ValidationError('Ой, на себя подписываться нельзя!')
+
+    def save(self, *args, **kwargs):
+        self.clean()  # Вызов валидации перед сохранением
+        super().save(*args, **kwargs)
