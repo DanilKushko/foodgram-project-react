@@ -2,6 +2,10 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from users.validator import validate_username
+
+MAX_LENGTH = 150
+
 
 class User(AbstractUser):
     """Модель пользователя"""
@@ -14,38 +18,34 @@ class User(AbstractUser):
     )
     username = models.CharField(
         'Имя пользователя',
-        max_length=64,
+        max_length=MAX_LENGTH,
         unique=True,
         blank=False,
         null=False,
+        validators=[validate_username, ]
     )
     first_name = models.CharField(
         'Имя',
-        max_length=64,
+        max_length=MAX_LENGTH,
         blank=False,
         null=False,
     )
     last_name = models.CharField(
         'Фамилия',
-        max_length=64,
+        max_length=MAX_LENGTH,
         blank=False,
         null=False,
     )
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name']
+    REQUIRED_FIELDS = ['first_name', 'last_name', 'username']
 
     class Meta:
+        ordering = ('last_name', 'first_name',)
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
 
     def __str__(self):
         return self.username
-
-    def me_validator(self):
-        if self.username.lower() == 'me':
-            raise ValidationError(
-                f'Создать пользователя с именем "{self.username}" невозможно.'
-            )
 
 
 class Follow(models.Model):
@@ -70,6 +70,7 @@ class Follow(models.Model):
                 name='unique_follow'
             )
         ]
+        ordering = ('id',)
 
     def __str__(self):
         return f'{self.user} подписался на {self.author}'

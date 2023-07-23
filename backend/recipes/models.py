@@ -1,7 +1,7 @@
 from colorfield.fields import ColorField
 from django.core.validators import MinValueValidator
 from django.db import models
-
+from django.db.models import Exists, OuterRef
 from users.models import Follow, User  # noqa
 
 MAX_NAME_LENGTH = 100
@@ -30,7 +30,7 @@ class Tag(models.Model):
     class Meta:
         verbose_name = 'Тег'
         verbose_name_plural = 'Теги'
-        ordering = ['name']
+        ordering = ('name',)
 
     def __str__(self):
         return self.name
@@ -44,10 +44,30 @@ class Ingredient(models.Model):
     class Meta:
         verbose_name = 'Ингридиент'
         verbose_name_plural = 'Ингридиенты'
-        ordering = ['name']
+        ordering = ('name',)
 
     def __str__(self):
         return self.name
+
+
+class RecipeQuerySet(models.QuerySet):
+    def with_user_annotations(self, user):
+        return self.annotate(
+            is_favorited=Exists(
+                Favorite.objects.filter(recipe=OuterRef('pk'), user=user)
+            ),
+            is_in_shopping_cart=Exists(
+                ShopList.objects.filter(recipe=OuterRef('pk'), user=user)
+            )
+        )
+
+
+class RecipeManager(models.Manager):
+    def get_queryset(self):
+        return RecipeQuerySet(self.model, using=self._db)
+
+    def for_user(self, user):
+        return self.get_queryset().with_user_annotations(user)
 
 
 class Recipe(models.Model):
@@ -77,11 +97,12 @@ class Recipe(models.Model):
         verbose_name='Ингридиенты',
         related_name='recipes'
     )
+    objects = RecipeManager()
 
     class Meta:
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
-        ordering = ['name']
+        ordering = ('name',)
 
     def __str__(self):
         return self.name
@@ -99,6 +120,12 @@ class TagToRecipe(models.Model):
     class Meta:
         verbose_name = 'тег'
         verbose_name_plural = 'Теги'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tag', 'recipe'],
+                name='unique_tag_recipe'
+            )
+        ]
 
     def __str__(self):
         return f'{self.tag} и {self.recipe}'
@@ -173,6 +200,12 @@ class IngredientToRecipe(models.Model):
     class Meta:
         verbose_name = 'Ингридиент'
         verbose_name_plural = 'Ингридиенты'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ingredient', 'recipe'],
+                name='unique_ingredient_recipe'
+            )
+        ]
 
     def __str__(self):
         return f'{self.ingredient} и {self.recipe}'

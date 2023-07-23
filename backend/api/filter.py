@@ -1,16 +1,13 @@
-from django_filters.rest_framework import FilterSet, filters
-from recipes.models import Recipe, Tag
-from rest_framework.filters import BaseFilterBackend
+from django_filters.rest_framework import FilterSet, filters, CharFilter
+from recipes.models import Recipe, Tag, Ingredient
 
 
-class IngredientFilter(BaseFilterBackend):
-    search_param = 'name'
+class IngredientFilter(FilterSet):
+    name = CharFilter(field_name='name', lookup_expr='icontains')
 
-    def filter_queryset(self, request, queryset, view):
-        search_value = request.query_params.get(self.search_param)
-        if search_value:
-            return queryset.filter(name__icontains=search_value)
-        return queryset
+    class Meta:
+        model = Ingredient
+        fields = ['name']
 
 
 class RecipeFilter(FilterSet):
