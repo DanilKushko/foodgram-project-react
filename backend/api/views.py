@@ -25,8 +25,7 @@ class UserViewSet(DjoserUserViewSet):
     permission_classes = (AllowAny,)
 
     @action(
-            detail=True,
-            methods=['POST', 'DELETE'],
+            detail=True, methods=['POST', 'DELETE'],
             permission_classes=[IsAuthenticated]
         )
     def subscribe(self, request, id):
