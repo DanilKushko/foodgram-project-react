@@ -24,10 +24,7 @@ class UserViewSet(DjoserUserViewSet):
 
     permission_classes = (AllowAny,)
 
-    @action(
-            detail=True, methods=['POST', 'DELETE'],
-            permission_classes=[IsAuthenticated]
-        )
+    @action(detail=True, methods=['POST', 'DELETE'])
     def subscribe(self, request, id):
         user = request.user
         author = get_object_or_404(User, pk=id)
