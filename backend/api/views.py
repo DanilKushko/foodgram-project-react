@@ -15,13 +15,14 @@ from .permissions import IsAuthorOrReadOnly
 from .serializers import (CreateRecipeSerializer, FavoriteSerializer,
                           IngredientSerializer, RecipeReadSerializer,
                           ShopListSerializer, SubscribeListSerializer,
-                          TagSerializer, UserSerializer)
+                          TagSerializer, UserSerializer, FollowSerializer)
+from .pagination import PageLimitPagination
 
 
 class UserViewSet(DjoserUserViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-
+    pagination_class = PageLimitPagination
     permission_classes = (AllowAny,)
 
     @action(detail=True, methods=['POST', 'DELETE'])
@@ -30,19 +31,20 @@ class UserViewSet(DjoserUserViewSet):
         author = get_object_or_404(User, pk=id)
 
         if request.method == 'POST':
-            serializer = SubscribeListSerializer(author, data=request.data)
+            serializer = FollowSerializer(author)
             serializer.is_valid(raise_exception=True)
             Follow.objects.create(user=user, author=author)
             return Response(status=status.HTTP_201_CREATED)
-        elif request.method == 'DELETE':
-            Follow.objects.filter(user=user, author=author).delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        Follow.objects.filter(user=user, author=author).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, permission_classes=[IsAuthenticated])
     def subscriptions(self, request):
         queryset = request.user.following.all()
-        serializer = SubscribeListSerializer(queryset, many=True)
-        return Response(serializer.data)
+        paginator = self.pagination_class()
+        subscriptions_page = paginator.paginate_queryset(queryset, request)
+        serializer = SubscribeListSerializer(subscriptions_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 
 class TagViewSet(viewsets.ModelViewSet):
@@ -67,7 +69,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthorOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
-    pagination_class = None
+    pagination_class = PageLimitPagination
+
+    def get_queryset(self):
+        queryset = Recipe.objects.with_user_annotations(self.request.user)
+        queryset = queryset.order_by('-created_at')
+        return queryset
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -108,11 +115,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if request.method == 'POST':
             self.handle_favorite_or_cart(request, recipe, ShopListSerializer)
             return Response(status=status.HTTP_201_CREATED)
-        elif request.method == 'DELETE':
-            self.handle_favorite_or_cart(
-                request, recipe, ShopListSerializer, remove=True
-            )
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        self.handle_favorite_or_cart(
+            request, recipe, ShopListSerializer, remove=True
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['POST', 'DELETE'])
     def favorite(self, request, pk):
@@ -121,6 +127,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if request.method == 'POST':
             self.handle_favorite_or_cart(request, recipe, FavoriteSerializer)
             return Response(status=status.HTTP_201_CREATED)
+        favorite_recipe = self.get_object()
+        favorite_recipe.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def handle_favorite_or_cart(self, request, recipe, serializer_class):
         data = {'user': request.user.id, 'recipe': recipe.id}

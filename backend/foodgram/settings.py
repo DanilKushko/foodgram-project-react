@@ -134,7 +134,7 @@ REST_FRAMEWORK = {
 
 DJOSER = {
     'HIDE_USERS': False,
-    'USERNAME_FIELD': 'username',
+    'USERNAME_FIELD': 'email',
     'PERMISSIONS': {
         'user': ['djoser.permissions.CurrentUserOrAdminOrReadOnly'],
         'user_list': ['rest_framework.permissions.IsAuthenticatedOrReadOnly'],

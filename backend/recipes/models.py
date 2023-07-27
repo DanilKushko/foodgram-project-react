@@ -2,6 +2,7 @@ from colorfield.fields import ColorField
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Exists, OuterRef
+
 from users.models import Follow, User  # noqa
 
 MAX_NAME_LENGTH = 100
@@ -89,12 +90,18 @@ class Recipe(models.Model):
         verbose_name='Ингридиенты',
         related_name='recipes'
     )
+
+    pub_date = models.DateTimeField(
+        verbose_name='Дата публикации',
+        auto_now_add=True
+    )
+
     objects = RecipeQuerySet.as_manager()
 
     class Meta:
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
-        ordering = ('name',)
+        ordering = ('pub_date', 'name', )
 
     def __str__(self):
         return self.name
