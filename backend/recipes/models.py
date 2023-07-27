@@ -62,14 +62,6 @@ class RecipeQuerySet(models.QuerySet):
         )
 
 
-class RecipeManager(models.Manager):
-    def get_queryset(self):
-        return RecipeQuerySet(self.model, using=self._db)
-
-    def for_user(self, user):
-        return self.get_queryset().with_user_annotations(user)
-
-
 class Recipe(models.Model):
     """Модель рецепта."""
     name = models.CharField('Название', max_length=MAX_NAME_LENGTH)
@@ -97,7 +89,7 @@ class Recipe(models.Model):
         verbose_name='Ингридиенты',
         related_name='recipes'
     )
-    objects = RecipeManager()
+    objects = RecipeQuerySet.as_manager()
 
     class Meta:
         verbose_name = 'Рецепт'
@@ -159,6 +151,12 @@ class Favorite(FavoriteShoppingCart):
         verbose_name = 'Избранное'
         verbose_name_plural = 'Избранное'
         default_related_name = 'favorites'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_user_recipe_favorite'
+            )
+        ]
 
     def __str__(self):
         return (f'Рецепт: {self.recipe} - теперь'
@@ -168,9 +166,16 @@ class Favorite(FavoriteShoppingCart):
 class ShopList(FavoriteShoppingCart):
     """Модель списка покупок."""
 
-    class Meta(FavoriteShoppingCart.Meta):
+    class Meta:
+        default_related_name = 'shopping_list'
         verbose_name = 'Корзина'
         verbose_name_plural = 'Корзина'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_user_recipe_cart'
+            )
+        ]
 
     def __str__(self):
         return (f'Рецепт: {self.recipe} - теперь'

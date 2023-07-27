@@ -11,7 +11,7 @@ from users.models import User
 class UserSerializer(serializers.ModelSerializer):
     """Сериализатор пользователя."""
 
-    subscribed = serializers.SerializerMethodField(read_only=True)
+    is_subscribed = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
@@ -21,9 +21,8 @@ class UserSerializer(serializers.ModelSerializer):
     def get_is_subscribed(self, obj):
         """Проверка подписки."""
         request = self.context.get('request')
-        return (request is not None
-                and request.user.is_authenticated
-                and obj.followers.filter(pk=request.user.pk).exists())
+        return request.user.is_authenticated and obj.following.filter(
+            username=request.user).exists()
 
 
 class UserCreateSerializer(djoser.serializers.UserCreateSerializer):
@@ -55,18 +54,20 @@ class SubscribeListSerializer(djoser.serializers.UserSerializer):
 
     def get_recipes(self, obj):
         """Возвращает список рецептов"""
+        recipes = obj.recipe.all()
         request = self.context['request']
         limit = request.GET.get('recipes_limit')
+
         if limit:
-            recipes = obj.recipe.all()[:int(limit)]
-        else:
-            recipes = obj.recipe.all()
+            recipes = recipes[:int(limit)]
+
         return RecipeShortSerializer(recipes, many=True).data
 
-    def get_is_subscribed(self, obj):  # добавим пропущенный параметр self
+    def get_is_subscribed(self, obj):
         """Проверка подписки пользователей"""
-        user = self.context['request'].user
-        return user.following.filter(author=obj).exists()
+        request = self.context.get('request')
+        return request.user.is_authenticated and obj.following.filter(
+            username=request.user).exists()
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -120,13 +121,13 @@ class RecipeReadSerializer(serializers.ModelSerializer):
 
 class CreateRecipeSerializer(serializers.ModelSerializer):
     """Сериализатор для создания рецепта. """
-    recipe_ingredients = IngredientRecipeForCreateSerializer(many=True)
-    recipe_tags = serializers.PrimaryKeyRelatedField(
+    ingredients = IngredientRecipeForCreateSerializer(many=True)
+    tags = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Tag.objects.all()
     )
-    recipe_image = Base64ImageField(max_length=None)
-    recipe_author = UserSerializer(read_only=True)
+    image = Base64ImageField(max_length=None)
+    author = UserSerializer(read_only=True)
     cooking_time = serializers.IntegerField()
 
     class Meta:

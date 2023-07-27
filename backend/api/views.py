@@ -7,8 +7,9 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from users.models import Follow, User
 
+
+from users.models import Follow, User
 from .filter import IngredientFilter, RecipeFilter
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (CreateRecipeSerializer, FavoriteSerializer,
@@ -23,7 +24,11 @@ class UserViewSet(DjoserUserViewSet):
 
     permission_classes = (AllowAny,)
 
-    @action(detail=True, methods=['POST', 'DELETE'])
+    @action(
+            detail=True,
+            methods=['POST', 'DELETE'],
+            permission_classes=[IsAuthenticated]
+        )
     def subscribe(self, request, id):
         user = request.user
         author = get_object_or_404(User, pk=id)
@@ -33,6 +38,9 @@ class UserViewSet(DjoserUserViewSet):
             serializer.is_valid(raise_exception=True)
             Follow.objects.create(user=user, author=author)
             return Response(status=status.HTTP_201_CREATED)
+        elif request.method == 'DELETE':
+            Follow.objects.filter(user=user, author=author).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, permission_classes=[IsAuthenticated])
     def subscriptions(self, request):
@@ -45,6 +53,7 @@ class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = (AllowAny, )
+    pagination_class = None
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -54,6 +63,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = IngredientFilter
     search_fields = ('name',)
+    pagination_class = None
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -61,6 +71,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthorOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
+    pagination_class = None
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -96,11 +107,16 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['POST', 'DELETE'])
     def shopping_cart(self, request, pk):
-        recipe = get_object_or_404(Recipe, id=pk)
+        recipe = self.get_object()
 
         if request.method == 'POST':
             self.handle_favorite_or_cart(request, recipe, ShopListSerializer)
             return Response(status=status.HTTP_201_CREATED)
+        elif request.method == 'DELETE':
+            self.handle_favorite_or_cart(
+                request, recipe, ShopListSerializer, remove=True
+            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['POST', 'DELETE'])
     def favorite(self, request, pk):
