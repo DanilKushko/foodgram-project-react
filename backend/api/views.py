@@ -32,26 +32,32 @@ class UserViewSet(DjoserUserViewSet):
 
         if request.method == 'POST':
             serializer = FollowSerializer(author)
-            serializer.is_valid(raise_exception=True)
-            Follow.objects.create(user=user, author=author)
-            return Response(status=status.HTTP_201_CREATED)
-        Follow.objects.filter(user=user, author=author).delete()
+            if serializer.is_valid():
+                serializer.save()
+                return Response(status=status.HTTP_201_CREATED)
+            # Follow.objects.create(user=user, author=author)
+            return Response(serializer.data,
+                            status=status.HTTP_201_CREATED)
+        get_object_or_404(Follow, follower=user, author=author).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, permission_classes=[IsAuthenticated])
-    def subscriptions(self, request):
-        queryset = request.user.following.all()
+    def get_subscriptions(self, request):
+        user = request.user
         paginator = self.pagination_class()
+        queryset = User.objects.filter(following__username=user)
         subscriptions_page = paginator.paginate_queryset(queryset, request)
-        serializer = SubscribeListSerializer(subscriptions_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        serializer = SubscribeListSerializer(queryset,
+                                             subscriptions_page,
+                                             many=True,
+                                             context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = (AllowAny, )
-    pagination_class = None
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -61,7 +67,6 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = IngredientFilter
     search_fields = ('name',)
-    pagination_class = None
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -72,8 +77,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     pagination_class = PageLimitPagination
 
     def get_queryset(self):
-        queryset = Recipe.objects.with_user_annotations(self.request.user)
-        queryset = queryset.order_by('-created_at')
+        queryset = Recipe.objects.with_user_annotations(
+            self.request.user
+        ).order_by('name')
         return queryset
 
     def get_serializer_class(self):
@@ -87,7 +93,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
             ingredienttorecipe__recipe__shopping_list__user=request.user
         ).values(
             'name', 'measurement_unit'
-        ).annotate(total_amount=Sum('ingredienttorecipe__amount'))
+        ).annotate(
+            total_amount=Sum(
+                'ingredienttorecipe__amount'
+            ).order_by('name'))
 
         return self.generate_shopping_cart_response(ingredients)
 
@@ -108,7 +117,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         )
         return response
 
-    @action(detail=True, methods=['POST', 'DELETE'])
+    @action(detail=True, methods=['POST', 'DELETE'],
+            permission_classes=[IsAuthenticated])
     def shopping_cart(self, request, pk):
         recipe = self.get_object()
 
@@ -120,7 +130,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=['POST', 'DELETE'])
+    @action(detail=True, methods=['POST', 'DELETE'],
+            permission_classes=[IsAuthenticated])
     def favorite(self, request, pk):
         recipe = get_object_or_404(Recipe, id=pk)
 

@@ -2,6 +2,7 @@ import djoser.serializers
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 from rest_framework.fields import SerializerMethodField
+from django.shortcuts import get_object_or_404
 
 from recipes.models import (Favorite, Ingredient, IngredientToRecipe,
                             Recipe, ShopList, Tag, Follow)
@@ -39,14 +40,14 @@ class SubscribeListSerializer(djoser.serializers.UserSerializer):
     """Сериализатор подписок."""
     recipe_count = SerializerMethodField()
     recipe = SerializerMethodField()
-    is_subscribed = SerializerMethodField()
+    # is_subscribed = SerializerMethodField()
 
     class Meta:
         model = User
-        fields = '__all__'
+        fields = ('email', 'id', 'username', 'first_name',
+                  'last_name', 'recipes', 'recipes_count')
         read_only_fields = ('email', 'username',
                             'first_name', 'last_name')
-        read_only_fields = ('email', 'username')
 
     def get_recipe_count(self, obj):
         """Возвращает количество рецептов автора"""
@@ -54,14 +55,27 @@ class SubscribeListSerializer(djoser.serializers.UserSerializer):
 
     def get_recipes(self, obj):
         """Возвращает список рецептов"""
-        recipes = obj.recipe.all()
-        request = self.context['request']
-        limit = request.GET.get('recipes_limit')
+        request = self.context.get('request')
+        recipes = obj.recipes.all()
+        serializer = RecipeShortSerializer(recipes,
+                                           many=True,
+                                           read_only=True,
+                                           context={'request': request})
+        return serializer.data
 
-        if limit:
-            recipes = recipes[:int(limit)]
-
-        return RecipeShortSerializer(recipes, many=True).data
+    def validate(self, data):
+        """Проверка подписки"""
+        request = self.context.get('request')
+        author = get_object_or_404(User, username=data['username'])
+        user = request.user
+        if user.follower.filter(author=author,
+                                user=user).exists() or user == author:
+            raise serializers.ValidationError(
+                'Вы подписаны на этого пользователя '
+                'или нельзя подписаться на самого себя',
+                code=serializers.status.HTTP_400_BAD_REQUEST
+            )
+        return data
 
     def get_is_subscribed(self, obj):
         """Проверка подписки пользователей"""
@@ -123,7 +137,8 @@ class RecipeReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
-        fields = '__all__'
+        fields = ('id', 'title', 'tags', 'ingredients',
+                  'cooking_time', 'image', 'author')
 
 
 class CreateRecipeSerializer(serializers.ModelSerializer):
@@ -283,7 +298,7 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
 
 class FollowSerializer(serializers.ModelSerializer):
-    """Сериализатор для модели Follow (подписки)"""
+    """Проверка и создание подписок на пользователей"""
 
     class Meta:
         model = Follow
