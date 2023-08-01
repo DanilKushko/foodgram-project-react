@@ -31,15 +31,17 @@ class UserViewSet(DjoserUserViewSet):
         author = get_object_or_404(User, pk=id)
 
         if request.method == 'POST':
-            serializer = FollowSerializer(author)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(status=status.HTTP_201_CREATED)
-            # Follow.objects.create(user=user, author=author)
-            return Response(serializer.data,
-                            status=status.HTTP_201_CREATED)
-        get_object_or_404(Follow, follower=user, author=author).delete()
+            data = {'user': user.id, 'author': author.id}
+            serializer = FollowSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            Follow.objects.create(user=user, author=author)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        get_object_or_404(Follow, user=user, author=author).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    # В методе get_subscriptions, данные передаются в
+    # в сериализатор SubscribeListSerializer для формирования
+    # ответа на запрос получения подписок пользователей.
 
     @action(detail=False, permission_classes=[IsAuthenticated])
     def get_subscriptions(self, request):
@@ -96,7 +98,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ).annotate(
             total_amount=Sum(
                 'ingredienttorecipe__amount'
-            ).order_by('name'))
+            )).order_by('name')
 
         return self.generate_shopping_cart_response(ingredients)
 
@@ -124,9 +126,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         if request.method == 'POST':
             self.handle_favorite_or_cart(request, recipe, ShopListSerializer)
-            return Response(status=status.HTTP_201_CREATED)
+            serializer = RecipeReadSerializer(
+                recipe, context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         self.handle_favorite_or_cart(
-            request, recipe, ShopListSerializer, remove=True
+            request, recipe, ShopListSerializer
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -137,7 +142,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         if request.method == 'POST':
             self.handle_favorite_or_cart(request, recipe, FavoriteSerializer)
-            return Response(status=status.HTTP_201_CREATED)
+            serializer = RecipeReadSerializer(
+                recipe, context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         favorite_recipe = self.get_object()
         favorite_recipe.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -1,8 +1,9 @@
 import djoser.serializers
+
+from django.shortcuts import get_object_or_404
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 from rest_framework.fields import SerializerMethodField
-from django.shortcuts import get_object_or_404
 
 from recipes.models import (Favorite, Ingredient, IngredientToRecipe,
                             Recipe, ShopList, Tag, Follow)
@@ -22,8 +23,8 @@ class UserSerializer(serializers.ModelSerializer):
     def get_is_subscribed(self, obj):
         """Проверка подписки."""
         request = self.context.get('request')
-        return request.user.is_authenticated and obj.following.filter(
-            user=request.user).exists()
+        return (request and request.user.is_authenticated
+                and obj.following.filter(user=request.user).exists())
 
 
 class UserCreateSerializer(djoser.serializers.UserCreateSerializer):
@@ -40,7 +41,6 @@ class SubscribeListSerializer(djoser.serializers.UserSerializer):
     """Сериализатор подписок."""
     recipe_count = SerializerMethodField()
     recipe = SerializerMethodField()
-    # is_subscribed = SerializerMethodField()
 
     class Meta:
         model = User
@@ -66,7 +66,7 @@ class SubscribeListSerializer(djoser.serializers.UserSerializer):
     def validate(self, data):
         """Проверка подписки"""
         request = self.context.get('request')
-        author = get_object_or_404(User, username=data['username'])
+        author = get_object_or_404(User, user=data['user'])
         user = request.user
         if user.follower.filter(author=author,
                                 user=user).exists() or user == author:
@@ -80,8 +80,8 @@ class SubscribeListSerializer(djoser.serializers.UserSerializer):
     def get_is_subscribed(self, obj):
         """Проверка подписки пользователей"""
         request = self.context.get('request')
-        return request.user.is_authenticated and obj.following.filter(
-            username=request.user).exists()
+        return (request and request.user.is_authenticated
+                and obj.following.filter(user=request.user).exists())
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -137,8 +137,10 @@ class RecipeReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
-        fields = ('id', 'title', 'tags', 'ingredients',
-                  'cooking_time', 'image', 'author')
+        fields = ('id', 'name', 'tags', 'ingredients',
+                  'cooking_time', 'image', 'author',
+                  'is_favorited', 'is_in_shopping_cart', 'text'
+                  )
 
 
 class CreateRecipeSerializer(serializers.ModelSerializer):
@@ -256,7 +258,6 @@ class RecipeShortSerializer(serializers.ModelSerializer):
 
 class ShopListSerializer(serializers.ModelSerializer):
     """Сериализатор для списка покупок."""
-    recipe = RecipeShortSerializer(read_only=True, source='recipe')
     user = UserSerializer(read_only=True)
 
     class Meta:
@@ -276,7 +277,6 @@ class ShopListSerializer(serializers.ModelSerializer):
 class FavoriteSerializer(serializers.ModelSerializer):
     """Сериализатор для избранных рецептов."""
 
-    recipe = RecipeShortSerializer(read_only=True, source='recipe')
     user = UserSerializer(read_only=True)
 
     class Meta:
@@ -303,7 +303,6 @@ class FollowSerializer(serializers.ModelSerializer):
     class Meta:
         model = Follow
         fields = '__all__'
-        read_only_fields = ('user', 'author',)
 
     def validate(self, data):
         user = data['user']
