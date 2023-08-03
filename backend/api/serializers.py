@@ -1,6 +1,5 @@
 import djoser.serializers
 
-from django.shortcuts import get_object_or_404
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 from rest_framework.fields import SerializerMethodField
@@ -64,20 +63,6 @@ class SubscribeListSerializer(djoser.serializers.UserSerializer):
                                            read_only=True,
                                            context={'request': request})
         return serializer.data
-
-    def validate(self, data):
-        """Проверка подписки"""
-        request = self.context.get('request')
-        author = get_object_or_404(User, user=data['user'])
-        user = request.user
-        if user.follower.filter(
-                author=author).exists() or user == author:
-            raise serializers.ValidationError(
-                'Вы подписаны на этого пользователя '
-                'или нельзя подписаться на самого себя',
-                code=serializers.status.HTTP_400_BAD_REQUEST
-            )
-        return data
 
     def get_is_subscribed(self, obj):
         """Проверка подписки пользователей"""

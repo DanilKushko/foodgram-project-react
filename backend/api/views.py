@@ -37,7 +37,15 @@ class UserViewSet(DjoserUserViewSet):
             serializer = FollowSerializer(data=data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            subscribe_serializer = SubscribeListSerializer(
+                author,
+                context={'request': request}
+            )
+            return Response(
+                subscribe_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+
         get_object_or_404(Follow, user=user, author=author).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -119,23 +127,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
             permission_classes=[IsAuthenticated])
     def shopping_cart(self, request, pk):
         recipe = self.get_object()
-
-        if request.method == 'POST':
-            self.handle_favorite_or_cart(request, recipe, ShopListSerializer)
-            serializer = RecipeShortSerializer(
-                recipe, context={'request': request}
-            )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        self.handle_favorite_or_cart(
-            request, recipe, ShopListSerializer
+        self.handle_favorite_or_cart(request, recipe, ShopListSerializer)
+        serializer = RecipeShortSerializer(
+            recipe, context={'request': request}
         )
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @shopping_cart.mapping.delete
     def destroy_shopping_cart(self, request, pk):
         get_object_or_404(
             ShopList,
-            user=request.pk,
+            user=request.user.pk,
             recipe=get_object_or_404(Recipe, id=pk)
         ).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -144,16 +146,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
             permission_classes=[IsAuthenticated])
     def favorite(self, request, pk):
         recipe = get_object_or_404(Recipe, id=pk)
-
-        if request.method == 'POST':
-            self.handle_favorite_or_cart(request, recipe, FavoriteSerializer)
-            serializer = RecipeShortSerializer(
-                recipe, context={'request': request}
-            )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        favorite_recipe = self.get_object()
-        favorite_recipe.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        self.handle_favorite_or_cart(request, recipe, FavoriteSerializer)
+        serializer = RecipeShortSerializer(
+            recipe, context={'request': request}
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def handle_favorite_or_cart(self, request, recipe, serializer_class):
         data = {'user': request.user.id, 'recipe': recipe.id}
