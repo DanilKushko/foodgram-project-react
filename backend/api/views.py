@@ -82,16 +82,26 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
     pagination_class = PageLimitPagination
 
-    def get_queryset(self):
-        queryset = Recipe.objects.with_user_annotations(
-            self.request.user
-        ).order_by('name')
-        return queryset
+#    def get_queryset(self):
+#        queryset = Recipe.objects.with_user_annotations(
+#            self.request.user
+#        ).order_by('name')
+#        return queryset
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
             return RecipeReadSerializer
         return CreateRecipeSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated:
+            queryset = Recipe.objects.with_user_annotations(
+                self.request.user
+            ).order_by('name')
+        else:
+            queryset = Recipe.objects.all().order_by('name')
+        return queryset
 
     @action(detail=False, methods=['GET'])
     def download_shopping_cart(self, request):

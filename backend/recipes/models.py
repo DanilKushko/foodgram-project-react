@@ -38,28 +38,17 @@ class Tag(models.Model):
 
 
 class Ingredient(models.Model):
-    name = models.CharField(
-        verbose_name='Название',
-        max_length=MAX_NAME_LENGTH,
-        db_index=True
-    )
-    measurement_unit = models.CharField(
-        verbose_name='Единица измерения',
-        max_length=50
-    )
+    """Модель ингридиентов."""
+    name = models.CharField('Название', max_length=MAX_NAME_LENGTH)
+    measurement_unit = models.CharField('Еденица измерения', max_length=30)
 
     class Meta:
-        ordering = ('-id',)
-        verbose_name_plural = 'Ингредиенты'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['name', 'measurement_unit'],
-                name='unique_name_measurement_unit'
-            )
-        ]
+        verbose_name = 'Ингридиент'
+        verbose_name_plural = 'Ингридиенты'
+        ordering = ('name',)
 
     def __str__(self):
-        return f'{self.name} {self.measurement_unit}'
+        return self.name
 
 
 class RecipeQuerySet(models.QuerySet):
@@ -75,53 +64,44 @@ class RecipeQuerySet(models.QuerySet):
 
 
 class Recipe(models.Model):
-    tags = models.ManyToManyField(
-        Tag,
-        through='TagToRecipe',
-        verbose_name='Теги',
-        related_name='recipes'
-    )
-    name = models.CharField(
-        verbose_name='Название рецепта',
-        max_length=255
-    )
-    text = models.TextField(
-        verbose_name='Описание рецепта'
-    )
+    """Модель рецепта."""
+    name = models.CharField('Название', max_length=MAX_NAME_LENGTH)
+    text = models.TextField('Описание')
     cooking_time = models.PositiveSmallIntegerField(
-        verbose_name='Время приготовления'
+        'Время приготовления',
+        validators=[
+            MinValueValidator(
+                1, message='Минимальное время готовки не менее 1 минуты'
+            )
+        ]
     )
-    image = models.ImageField(
-        verbose_name='Изображение',
-        upload_to='recipes/image/'
-    )
+    image = models.ImageField('Изображение', upload_to='recipes/image/')
     author = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        verbose_name='Автор',
+        User, on_delete=models.CASCADE, verbose_name='Автор',
         related_name='recipes'
     )
+    tags = models.ManyToManyField(
+        Tag, through='TagToRecipe',
+        verbose_name='Теги',
+    )
+
     ingredients = models.ManyToManyField(
-        Ingredient,
-        through='IngredientToRecipe',
-        verbose_name='Ингредиенты',
+        Ingredient, through='IngredientToRecipe',
+        verbose_name='Ингридиенты',
         related_name='recipes'
     )
+
     pub_date = models.DateTimeField(
         verbose_name='Дата публикации',
         auto_now_add=True
     )
 
+    objects = RecipeQuerySet.as_manager()
+
     class Meta:
-        ordering = ('-pub_date',)
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['text', 'author'],
-                name='unique_text_author'
-            )
-        ]
+        ordering = ('-pub_date', 'name', )
 
     def __str__(self):
         return self.name
